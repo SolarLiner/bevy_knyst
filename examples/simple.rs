@@ -29,26 +29,18 @@ fn main() {
 
 fn add_sine(mut commands: Commands, mut graph: NonSendMut<Graph>) {
     let mut runner = || -> Result<NodeAddress, ConnectionError> {
-        let sine_node = graph.push_gen(WavetableOscillatorOwned::new(Wavetable::sine()));
-        graph.connect(constant(440.).to(sine_node).to_label("freq"))?;
-        let modulator = graph.push_gen(WavetableOscillatorOwned::new(Wavetable::sine()));
-        graph.connect(constant(5.).to(modulator).to_label("freq"))?;
-        let mod_amp = graph.push_gen(Mult);
-        graph.connect(modulator.to(mod_amp))?;
-        graph.connect(constant(0.25).to(mod_amp).to_index(1))?;
-        let amp = graph.push_gen(Mult);
-        graph.connect(sine_node.to(amp))?;
-        graph.connect(constant(0.5).to(amp).to_index(1))?;
-        graph.connect(mod_amp.to(amp).to_index(1))?;
-        graph.connect(amp.to_graph_out())?;
-        graph.connect(amp.to_graph_out().to_index(1))?;
-        Ok(sine_node)
+        let carrier = graph.push_gen(WavetableOscillatorOwned::new(Wavetable::sine()));
+
+        graph.connect(constant(440.).to(carrier).to_label("freq"))?;
+        graph.connect(carrier.to_graph_out())?;
+        graph.connect(carrier.to_graph_out().to_index(1))?;
+        Ok(carrier)
     };
     commands.spawn((NodeRef(runner().unwrap()), MySine));
 }
 
 fn modulate_sine(time: Res<Time>, mut graph: NonSendMut<Graph>, q: Query<&NodeRef, With<MySine>>) {
-    let amp = time.elapsed_seconds().sin() * 0.5 + 0.5;
+    let amp = time.elapsed_seconds().sin() * 100. + 440.;
     for node in &q {
         graph
             .schedule_change(ParameterChange::now(**node, amp))
