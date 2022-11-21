@@ -58,8 +58,8 @@ impl Plugin for AudioGraphPlugin {
             .add_startup_system(start_audio_backend)
             .add_stage(AudioStage::AudioGraphProcessing, SystemStage::parallel())
             .add_stage_before(
-                AudioStage::PreGraphProcessing,
                 AudioStage::AudioGraphProcessing,
+                AudioStage::PreGraphProcessing,
                 SystemStage::parallel(),
             )
             .add_stage_after(
@@ -75,8 +75,8 @@ impl Plugin for AudioGraphPlugin {
     }
 }
 
-fn start_audio_backend(mut backend: NonSendMut<CpalBackend>, mut graph: NonSendMut<Graph>) {
-    backend
+fn start_audio_backend(mut backend: NonSendMut<AudioGraphBackend>, mut graph: NonSendMut<Graph>) {
+    backend.backend
         .start_processing(&mut *graph, Resources::new(default()))
         .expect("Could not start audio graph");
 }
