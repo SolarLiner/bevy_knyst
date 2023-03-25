@@ -1,12 +1,12 @@
-use std::{fmt, ops};
-use std::fmt::Formatter;
 use bevy::asset::HandleId;
+use std::fmt::Formatter;
+use std::{fmt, ops};
 
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use knyst::audio_backend::CpalBackendOptions;
-use knyst::{audio_backend::CpalBackend, BufferId, graph::NodeAddress, prelude::*};
 use knyst::controller::KnystCommands;
+use knyst::{audio_backend::CpalBackend, graph::NodeAddress, prelude::*, BufferId};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, SystemSet)]
 pub struct AudioGraphProcessing;

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::{
     app::{RunMode, ScheduleRunnerSettings},
-    prelude::*
+    prelude::*,
 };
 use knyst::{prelude::*, wavetable::WavetableOscillatorOwned};
 
@@ -35,10 +35,13 @@ fn add_sine(mut commands: Commands, mut graph: ResMut<AudioGraphCommands>) {
     commands.spawn((NodeRef(carrier), MySine));
 }
 
-fn modulate_sine(time: Res<Time>, mut graph: ResMut<AudioGraphCommands>, q: Query<&NodeRef, With<MySine>>) {
+fn modulate_sine(
+    time: Res<Time>,
+    mut graph: ResMut<AudioGraphCommands>,
+    q: Query<&NodeRef, With<MySine>>,
+) {
     let freq = time.elapsed_seconds().sin() * 100. + 440.;
     for node in &q {
-        graph
-            .schedule_change(ParameterChange::now(node.0.clone(), freq));
+        graph.schedule_change(ParameterChange::now(node.0.clone(), freq));
     }
 }
