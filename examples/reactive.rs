@@ -1,15 +1,15 @@
 use bevy::prelude::*;
-use knyst::{
-    graph::{ConnectionError, NodeAddress},
-    prelude::*,
-    wavetable::WavetableOscillatorOwned,
-};
+use knyst::{prelude::*, wavetable::WavetableOscillatorOwned};
+use std::time::Duration;
 
-use bevy_knyst::{AudioGraphPlugin, NodeRef};
+use bevy_knyst::{AudioGraphCommands, AudioGraphPlugin, NodeRef};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_non_send_resource(RunGraphSettings {
+            scheduling_latency: Duration::from_millis(100),
+        })
         .add_plugin(AudioGraphPlugin)
         .add_startup_system(setup)
         .add_system(toggle_audio_button)
@@ -27,7 +27,11 @@ impl Default for OnOffSine {
     }
 }
 
-fn setup(mut commands: Commands, mut graph: NonSendMut<Graph>, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    mut graph: ResMut<AudioGraphCommands>,
+    asset_server: Res<AssetServer>,
+) {
     commands.spawn(Camera2dBundle::default());
 
     // UI
@@ -41,17 +45,14 @@ fn setup(mut commands: Commands, mut graph: NonSendMut<Graph>, asset_server: Res
             ..default()
         })
         .with_children(|parent| {
-            let mut runner = || -> Result<NodeAddress, ConnectionError> {
-                let carrier = graph.push_gen(WavetableOscillatorOwned::new(Wavetable::sine()));
-                let amp = graph.push_gen(Mult);
-                let amp_amt = graph.push(constant(0.));
-                graph.connect(carrier.to(amp).to_index(0))?;
-                graph.connect(constant(0.).to(amp).to_index(1))?;
-                graph.connect(constant(440.).to(carrier).to_label("freq"))?;
-                graph.connect(amp.to_graph_out())?;
-                graph.connect(amp.to_graph_out().to_index(1))?;
-                Ok(amp)
-            };
+            let carrier = graph.push(
+                WavetableOscillatorOwned::new(Wavetable::sine()),
+                inputs![("freq": 440.)],
+            );
+            let amp = graph.push(Mult, inputs![(0 ; carrier.out(0)), (1: 0.)]);
+
+            graph.connect(amp.to_graph_out());
+            graph.connect(amp.to_graph_out().to_index(1));
             parent
                 .spawn(ButtonBundle {
                     style: Style {
@@ -78,7 +79,7 @@ fn setup(mut commands: Commands, mut graph: NonSendMut<Graph>, asset_server: Res
                         },
                     ));
                 })
-                .insert((NodeRef(runner().unwrap()), OnOffSine::default()));
+                .insert((NodeRef(amp), OnOffSine::default()));
         });
 }
 
@@ -88,19 +89,17 @@ fn toggle_audio_button(
         Changed<Interaction>,
     >,
     mut text_query: Query<&mut Text>,
-    mut graph: NonSendMut<Graph>,
+    mut graph: ResMut<AudioGraphCommands>,
 ) {
     for (interaction, children, NodeRef(node), mut onoff) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
                 let mut text = text_query.get_mut(children[0]).unwrap();
                 onoff.is_on = !onoff.is_on;
-                graph
-                    .schedule_change(ParameterChange::now(
-                         node,
-                        if onoff.is_on { 1. } else { 0. },
-                    ))
-                    .unwrap();
+                graph.schedule_change(ParameterChange::now(
+                    node.clone(),
+                    if onoff.is_on { 1. } else { 0. },
+                ));
                 info!("Audio is now {:?}", onoff);
                 text.sections[0].value =
                     if onoff.is_on { "Turn Off" } else { "Turn On" }.to_string();

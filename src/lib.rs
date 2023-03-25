@@ -1,22 +1,17 @@
-
-use std::ops;
-
+use std::{fmt, ops};
+use std::fmt::Formatter;
+use bevy::asset::HandleId;
 
 use bevy::prelude::*;
-use knyst::{
-    audio_backend::{CpalBackend},
-    graph::NodeAddress,
-    prelude::*,
-};
+use bevy::utils::HashMap;
+use knyst::audio_backend::CpalBackendOptions;
+use knyst::{audio_backend::CpalBackend, BufferId, graph::NodeAddress, prelude::*};
+use knyst::controller::KnystCommands;
 
-#[derive(Debug, StageLabel)]
-pub enum AudioStage {
-    PreGraphProcessing,
-    AudioGraphProcessing,
-    PostGraphProcessing,
-}
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemSet)]
+pub struct AudioGraphProcessing;
 
-#[derive(Debug, Copy, Clone, Component)]
+#[derive(Debug, Clone, Component)]
 pub struct NodeRef(pub NodeAddress);
 
 impl ops::Deref for NodeRef {
@@ -27,20 +22,57 @@ impl ops::Deref for NodeRef {
     }
 }
 
-pub struct AudioGraphBackend {
-    pub backend: CpalBackend,
+pub struct KnystBackend(pub CpalBackend);
+
+impl ops::Deref for KnystBackend {
+    type Target = CpalBackend;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl FromWorld for AudioGraphBackend {
+impl ops::DerefMut for KnystBackend {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FromWorld for KnystBackend {
     fn from_world(world: &mut World) -> Self {
         let settings = world
-            .get_non_send_resource_mut()
-            .map(|mut v| std::mem::take(&mut *v))
+            .remove_non_send_resource::<CpalBackendOptions>()
             .unwrap_or_default();
-        Self {
-            backend: CpalBackend::new(settings).unwrap(),
-        }
+        Self(CpalBackend::new(settings).unwrap())
     }
+}
+
+#[derive(Clone, Resource)]
+pub struct AudioGraphCommands(KnystCommands);
+
+impl ops::Deref for AudioGraphCommands {
+    type Target = KnystCommands;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl ops::DerefMut for AudioGraphCommands {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl fmt::Debug for AudioGraphCommands {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("AudioGraphCommands").field(&"..").finish()
+    }
+}
+
+pub struct AudioHandleRef {
+    buffer: BufferId,
+    handle: Handle<AudioSource>,
 }
 
 #[derive(Default)]
@@ -48,45 +80,20 @@ pub struct AudioGraphPlugin;
 
 impl Plugin for AudioGraphPlugin {
     fn build(&self, app: &mut App) {
-        app.world.init_non_send_resource::<AudioGraphBackend>();
-        let graph_settings = app
+        app.world.init_non_send_resource::<KnystBackend>();
+        let resources = Resources::new(app.world.remove_non_send_resource().unwrap_or_default());
+        let run_graph_settings = app.world.remove_non_send_resource().unwrap_or_default();
+        let graph_settings = app.world.remove_non_send_resource().unwrap_or_default();
+        let mut graph_backend = app
             .world
-            .get_non_send_resource_mut::<GraphSettings>()
-            .map(|mut v| std::mem::take(&mut *v))
-            .unwrap_or_default();
+            .get_non_send_resource_mut::<KnystBackend>()
+            .unwrap();
         let graph = Graph::new(graph_settings);
-        app.insert_non_send_resource(graph)
-            .add_startup_system(start_audio_backend)
-            .add_stage(AudioStage::AudioGraphProcessing, SystemStage::parallel())
-            .add_stage_before(
-                AudioStage::AudioGraphProcessing,
-                AudioStage::PreGraphProcessing,
-                SystemStage::parallel(),
-            )
-            .add_stage_after(
-                AudioStage::AudioGraphProcessing,
-                AudioStage::PostGraphProcessing,
-                SystemStage::parallel(),
-            )
-            .add_system_to_stage(AudioStage::AudioGraphProcessing, commit_graph_changes);
-    }
-
-    fn is_unique(&self) -> bool {
-        true
-    }
-}
-
-fn start_audio_backend(mut backend: NonSendMut<AudioGraphBackend>, mut graph: NonSendMut<Graph>) {
-    backend
-        .backend
-        .start_processing(&mut *graph, Resources::new(default()))
-        .expect("Could not start audio graph");
-}
-
-fn commit_graph_changes(mut graph: NonSendMut<Graph>) {
-    if graph.is_changed() {
-        debug!("Commiting changes to audio graph");
-        graph.commit_changes();
-        graph.update();
+        let commands = graph_backend
+            .start_processing(graph, resources, run_graph_settings, |error| {
+                error!("Knyst error: {}", error);
+            })
+            .unwrap();
+        app.insert_resource(AudioGraphCommands(commands));
     }
 }

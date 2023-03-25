@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.9.0", default-features = false }
-knyst = { version = "0.3.0", features = ["cpal"] }
+bevy = { version = "0.10.0", default-features = false }
+knyst = { version = "0.4.0", features = ["cpal"] }
 
 [dev-dependencies]
-bevy = { version = "0.9.0", default-features = true }
+bevy = { version = "0.10.0", default-features = true }
+
+[profile.dev]
+debug-assertions = false
