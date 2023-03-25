@@ -1,5 +1,5 @@
 [package]
-name = "bevy_audio_graph"
+name = "bevy_knyst"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.9.0", default-features = false }
-knyst = { version = "0.2.0", features = ["cpal"] }
+knyst = { version = "0.3.0", features = ["cpal"] }
 
 [dev-dependencies]
 bevy = { version = "0.9.0", default-features = true }

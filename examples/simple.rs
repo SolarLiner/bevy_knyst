@@ -1,25 +1,22 @@
 use std::time::Duration;
-use bevy::{
-    prelude::*,
-    time::TimePlugin
-};
-use bevy::app::{RunMode, ScheduleRunnerSettings};
-use knyst::{
-    audio_backend::CpalBackend,
-    graph::Gen,
-    prelude::*,
-    wavetable::WavetableOscillatorOwned
-};
-use knyst::graph::{ConnectionError, NodeAddress};
 
-use bevy_audio_graph::{AudioGraphPlugin, AudioStage, NodeRef};
+use bevy::app::{RunMode, ScheduleRunnerSettings};
+use bevy::prelude::*;
+use knyst::graph::{ConnectionError, NodeAddress};
+use knyst::{prelude::*, wavetable::WavetableOscillatorOwned};
+
+use bevy_knyst::{AudioGraphPlugin, AudioStage, NodeRef};
 
 #[derive(Component)]
 struct MySine;
 
 fn main() {
     App::new()
-        .insert_resource(ScheduleRunnerSettings {run_mode: RunMode::Loop {wait: Some(Duration::from_micros(16_667))}})
+        .insert_resource(ScheduleRunnerSettings {
+            run_mode: RunMode::Loop {
+                wait: Some(Duration::from_micros(16_667)),
+            },
+        })
         .add_plugins(MinimalPlugins)
         .add_plugin(AudioGraphPlugin)
         .add_startup_system(add_sine)

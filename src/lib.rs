@@ -1,9 +1,10 @@
-use std::marker::PhantomData;
+
 use std::ops;
+
 
 use bevy::prelude::*;
 use knyst::{
-    audio_backend::{CpalBackend, CpalBackendOptions},
+    audio_backend::{CpalBackend},
     graph::NodeAddress,
     prelude::*,
 };
@@ -48,12 +49,12 @@ pub struct AudioGraphPlugin;
 impl Plugin for AudioGraphPlugin {
     fn build(&self, app: &mut App) {
         app.world.init_non_send_resource::<AudioGraphBackend>();
-        let mut graph_settings = app
+        let graph_settings = app
             .world
             .get_non_send_resource_mut::<GraphSettings>()
             .map(|mut v| std::mem::take(&mut *v))
             .unwrap_or_default();
-        let mut graph = Graph::new(graph_settings);
+        let graph = Graph::new(graph_settings);
         app.insert_non_send_resource(graph)
             .add_startup_system(start_audio_backend)
             .add_stage(AudioStage::AudioGraphProcessing, SystemStage::parallel())
@@ -76,13 +77,15 @@ impl Plugin for AudioGraphPlugin {
 }
 
 fn start_audio_backend(mut backend: NonSendMut<AudioGraphBackend>, mut graph: NonSendMut<Graph>) {
-    backend.backend
+    backend
+        .backend
         .start_processing(&mut *graph, Resources::new(default()))
         .expect("Could not start audio graph");
 }
 
 fn commit_graph_changes(mut graph: NonSendMut<Graph>) {
-    if graph.is_added() || graph.is_changed() {
+    if graph.is_changed() {
+        debug!("Commiting changes to audio graph");
         graph.commit_changes();
         graph.update();
     }
