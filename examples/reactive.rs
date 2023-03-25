@@ -75,7 +75,6 @@ fn setup(
                             font_size: 40.,
                             font: asset_server.load("fonts/BebasNeue-Regular.ttf"),
                             color: Color::BLACK,
-                            ..default()
                         },
                     ));
                 })
@@ -92,19 +91,16 @@ fn toggle_audio_button(
     mut graph: ResMut<AudioGraphCommands>,
 ) {
     for (interaction, children, NodeRef(node), mut onoff) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
-                let mut text = text_query.get_mut(children[0]).unwrap();
-                onoff.is_on = !onoff.is_on;
-                graph.schedule_change(ParameterChange::now(
-                    node.clone(),
-                    if onoff.is_on { 1. } else { 0. },
-                ));
-                info!("Audio is now {:?}", onoff);
-                text.sections[0].value =
-                    if onoff.is_on { "Turn Off" } else { "Turn On" }.to_string();
-            }
-            _ => {}
+        if *interaction == Interaction::Clicked {
+            let mut text = text_query.get_mut(children[0]).unwrap();
+            onoff.is_on = !onoff.is_on;
+            graph.schedule_change(ParameterChange::now(
+                node.clone(),
+                if onoff.is_on { 1. } else { 0. },
+            ));
+            info!("Audio is now {:?}", onoff);
+            text.sections[0].value =
+                if onoff.is_on { "Turn Off" } else { "Turn On" }.to_string();
         }
     }
 }
